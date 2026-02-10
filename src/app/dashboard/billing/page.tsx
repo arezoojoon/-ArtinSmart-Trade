@@ -5,16 +5,24 @@ import { api } from '@/lib/api';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, Check, Crown, Zap, Shield } from 'lucide-react';
+import { Loader2, Check, X, Crown, Zap, Building2, ExternalLink } from 'lucide-react';
+import Link from 'next/link';
 
 interface Plan {
     name: string;
     price: number;
+    currency: string;
+    billing_cycle: string;
     max_products: number;
     max_trades: number;
     max_contacts: number;
     hunter_enabled: boolean;
     ai_queries_per_day: number;
+    auto_followup: boolean;
+    gap_analysis: boolean;
+    dedicated_manager: boolean;
+    features: string[];
+    not_included: string[];
 }
 
 interface Usage {
@@ -31,16 +39,23 @@ interface Usage {
 
 const planIcons: Record<string, any> = {
     free: Zap,
-    starter: Zap,
-    pro: Crown,
-    enterprise: Shield,
+    professional: Zap,
+    enterprise: Crown,
+    white_label: Building2,
+};
+
+const planColors: Record<string, string> = {
+    free: 'border-border',
+    professional: 'border-blue-500/30',
+    enterprise: 'border-amber-500/50 shadow-lg shadow-amber-500/10',
+    white_label: 'border-violet-500/30',
 };
 
 const planHighlights: Record<string, string> = {
-    free: 'Get started with basic features',
-    starter: 'For growing trade businesses',
-    pro: 'Full power for serious traders',
-    enterprise: 'Unlimited everything for teams',
+    free: 'Basic access to get started',
+    professional: 'Essential tools for individual traders',
+    enterprise: 'Full corporate suite for maximum ROI',
+    white_label: 'Your own brand & infrastructure',
 };
 
 export default function BillingPage() {
@@ -68,6 +83,10 @@ export default function BillingPage() {
     }, []);
 
     const handleUpgrade = async (planName: string) => {
+        if (planName === 'white_label') {
+            window.open('mailto:sales@artinsmartagent.com?subject=White Label Inquiry', '_blank');
+            return;
+        }
         setUpgrading(planName);
         try {
             await api.post('/billing/upgrade', { plan: planName });
@@ -89,17 +108,30 @@ export default function BillingPage() {
         return 'bg-primary';
     };
 
+    const formatPrice = (plan: Plan) => {
+        if (plan.price === 0 && plan.billing_cycle === 'custom') return 'Contact Us';
+        if (plan.price === 0) return 'Free';
+        return `${plan.price.toLocaleString()} ${plan.currency}`;
+    };
+
     if (loading) {
         return <div className="flex justify-center py-20"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
     }
 
     return (
         <div className="space-y-6">
-            <div>
-                <h1 className="text-2xl font-bold">Billing & Subscription</h1>
-                <p className="text-muted-foreground text-sm">
-                    Current plan: <span className="text-primary font-medium capitalize">{currentPlan}</span>
-                </p>
+            <div className="flex items-center justify-between">
+                <div>
+                    <h1 className="text-2xl font-bold">Billing & Subscription</h1>
+                    <p className="text-muted-foreground text-sm">
+                        Current plan: <span className="text-primary font-medium capitalize">{currentPlan.replace('_', ' ')}</span>
+                    </p>
+                </div>
+                <Link href="/payment" target="_blank">
+                    <Button variant="outline" size="sm" className="gap-2">
+                        <ExternalLink className="h-4 w-4" /> View Plans Page
+                    </Button>
+                </Link>
             </div>
 
             {/* Usage Overview */}
@@ -119,7 +151,7 @@ export default function BillingPage() {
                                     <div key={item.label}>
                                         <div className="flex justify-between text-sm mb-1">
                                             <span className="text-muted-foreground">{item.label}</span>
-                                            <span className="font-mono">{item.used}/{item.limit === 999999 ? '∞' : item.limit}</span>
+                                            <span className="font-mono">{item.used}/{item.limit >= 999999 ? '∞' : item.limit}</span>
                                         </div>
                                         <div className="h-2 bg-secondary rounded-full overflow-hidden">
                                             <div className={`h-full rounded-full transition-all ${usageColor(pct)}`} style={{ width: `${pct}%` }} />
@@ -143,37 +175,55 @@ export default function BillingPage() {
                 {plans.map(plan => {
                     const Icon = planIcons[plan.name] || Zap;
                     const isCurrent = plan.name === currentPlan;
+                    const isEnterprise = plan.name === 'enterprise';
                     return (
-                        <Card key={plan.name} className={`relative ${isCurrent ? 'border-primary ring-1 ring-primary/30' : 'hover:border-primary/30'} transition-all`}>
+                        <Card key={plan.name} className={`relative ${isCurrent ? 'border-primary ring-1 ring-primary/30' : planColors[plan.name] || 'hover:border-primary/30'} transition-all`}>
                             {isCurrent && (
                                 <div className="absolute -top-3 left-1/2 -translate-x-1/2">
                                     <Badge variant="default">Current</Badge>
                                 </div>
                             )}
-                            <CardContent className="p-6 text-center">
-                                <Icon className="h-8 w-8 mx-auto text-primary mb-3" />
-                                <h3 className="text-lg font-bold capitalize">{plan.name}</h3>
-                                <p className="text-xs text-muted-foreground mb-4">{planHighlights[plan.name] || ''}</p>
-                                <div className="mb-4">
-                                    <span className="text-3xl font-bold">${plan.price}</span>
-                                    <span className="text-muted-foreground text-sm">/mo</span>
+                            {isEnterprise && !isCurrent && (
+                                <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+                                    <Badge className="bg-amber-500 hover:bg-amber-600">Popular</Badge>
                                 </div>
-                                <div className="space-y-2 text-sm text-left mb-6">
-                                    <div className="flex items-center gap-2"><Check className="h-4 w-4 text-primary" /><span>{plan.max_products === 999999 ? 'Unlimited' : plan.max_products} products</span></div>
-                                    <div className="flex items-center gap-2"><Check className="h-4 w-4 text-primary" /><span>{plan.max_trades === 999999 ? 'Unlimited' : plan.max_trades} trades</span></div>
-                                    <div className="flex items-center gap-2"><Check className="h-4 w-4 text-primary" /><span>{plan.max_contacts === 999999 ? 'Unlimited' : plan.max_contacts} contacts</span></div>
-                                    <div className="flex items-center gap-2"><Check className="h-4 w-4 text-primary" /><span>{plan.ai_queries_per_day === 999999 ? 'Unlimited' : plan.ai_queries_per_day} AI queries/day</span></div>
-                                    <div className="flex items-center gap-2">
-                                        <Check className={`h-4 w-4 ${plan.hunter_enabled ? 'text-primary' : 'text-muted-foreground'}`} />
-                                        <span className={plan.hunter_enabled ? '' : 'text-muted-foreground line-through'}>Hunter Engine</span>
-                                    </div>
+                            )}
+                            <CardContent className="p-6">
+                                <div className="text-center mb-4">
+                                    <Icon className="h-8 w-8 mx-auto text-primary mb-3" />
+                                    <h3 className="text-lg font-bold capitalize">{plan.name.replace('_', ' ')}</h3>
+                                    <p className="text-xs text-muted-foreground">{planHighlights[plan.name] || ''}</p>
+                                </div>
+                                <div className="text-center mb-4">
+                                    <span className="text-2xl font-bold">{formatPrice(plan)}</span>
+                                    {plan.billing_cycle === 'annual' && (
+                                        <span className="text-muted-foreground text-xs block">/year</span>
+                                    )}
+                                </div>
+                                <div className="space-y-2 text-sm mb-6">
+                                    {(plan.features || []).map((f, i) => (
+                                        <div key={i} className="flex items-center gap-2">
+                                            <Check className="h-4 w-4 text-emerald-500 flex-shrink-0" />
+                                            <span>{f}</span>
+                                        </div>
+                                    ))}
+                                    {(plan.not_included || []).map((f, i) => (
+                                        <div key={`ni-${i}`} className="flex items-center gap-2">
+                                            <X className="h-4 w-4 text-muted-foreground/50 flex-shrink-0" />
+                                            <span className="text-muted-foreground/60 line-through">{f}</span>
+                                        </div>
+                                    ))}
                                 </div>
                                 {isCurrent ? (
                                     <Button variant="outline" className="w-full" disabled>Current Plan</Button>
                                 ) : (
-                                    <Button className="w-full" onClick={() => handleUpgrade(plan.name)} disabled={!!upgrading}>
+                                    <Button
+                                        className={`w-full ${isEnterprise ? 'bg-amber-500 hover:bg-amber-600 text-white' : ''}`}
+                                        onClick={() => handleUpgrade(plan.name)}
+                                        disabled={!!upgrading}
+                                    >
                                         {upgrading === plan.name ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-                                        {plan.price === 0 ? 'Downgrade' : 'Upgrade'}
+                                        {plan.name === 'white_label' ? 'Contact Sales' : plan.price === 0 ? 'Downgrade' : 'Upgrade'}
                                     </Button>
                                 )}
                             </CardContent>

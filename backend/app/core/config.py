@@ -30,6 +30,8 @@ class Settings(BaseSettings):
         "http://localhost:3001",
         "http://localhost:8000",
         "https://artinsmartagent.com",
+        "https://trade.artinsmartagent.com",
+        "https://www.artinsmartagent.com",
     ]
 
     # Rate Limiting
